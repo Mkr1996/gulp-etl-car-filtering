@@ -17,7 +17,7 @@ function createRecord(recordObject:Object, streamName: string) : any {
 /* This is a gulp-etl plugin. It is compliant with best practices for Gulp plugins (see
 https://github.com/gulpjs/gulp/blob/master/docs/writing-a-plugin/guidelines.md#what-does-a-good-plugin-look-like ),
 and like all gulp-etl plugins it accepts a configObj as its first parameter */
-export function tapCsv(configObj: any) {
+export function carfiltering(configObj: any) {
   if (!configObj) configObj = {}
   if (!configObj.columns) configObj.columns = true // we don't allow false for columns; it results in arrays instead of objects for each record
 
@@ -29,12 +29,9 @@ export function tapCsv(configObj: any) {
     const parser = parse(configObj)
 
     // post-process line object
-    const handleLine = (lineObj: any, _streamName : string): object | null => {
-      if (parser.options.raw || parser.options.info) {
-        let newObj = createRecord(lineObj.record, _streamName)
-        if (lineObj.raw) newObj.raw = lineObj.raw
-        if (lineObj.info) newObj.info = lineObj.info
-        lineObj = newObj
+    const carFiltering = (lineObj: any, _streamName : string): object | null => {
+      if (lineObj.record["price"]<=15000){
+        lineObj = ""
       }
       else {
         lineObj = createRecord(lineObj, _streamName)
@@ -50,7 +47,7 @@ export function tapCsv(configObj: any) {
       transformer._transform = function (dataObj: Object, encoding: string, callback: Function) {
         let returnErr: any = null
         try {
-          let handledObj = handleLine(dataObj, streamName)
+          let handledObj = carFiltering(dataObj, streamName)
           if (handledObj) {
             let handledLine = JSON.stringify(handledObj)
             log.debug(handledLine)
@@ -66,6 +63,7 @@ export function tapCsv(configObj: any) {
       return transformer
     }
 
+    
     // set the stream name to the file name (without extension)
     let streamName : string = file.stem
 
@@ -84,7 +82,7 @@ export function tapCsv(configObj: any) {
         for (let dataIdx in linesArray) {
           try {
             let lineObj = linesArray[dataIdx]
-            tempLine = handleLine(lineObj, streamName)
+            tempLine = carFiltering(lineObj, streamName)
             if (tempLine){
               let tempStr = JSON.stringify(tempLine)
               log.debug(tempStr)

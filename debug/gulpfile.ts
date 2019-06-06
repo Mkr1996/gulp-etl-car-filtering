@@ -1,5 +1,5 @@
 let gulp = require('gulp')
-import { tapCsv } from '../src/plugin'
+import { carfiltering } from '../src/plugin'
 
 import * as loglevel from 'loglevel'
 const log = loglevel.getLogger('gulpfile')
@@ -34,11 +34,8 @@ function runTapCsv(callback: any) {
     }))
     .on('data', function (file:Vinyl) {
       log.info('Starting processing on ' + file.basename)
-    })    
-    .pipe(tapCsv({raw:true/*, info:true */}))
-    .pipe(rename({
-      extname: ".ndjson",
-    }))      
+    })     
+    .pipe(carfiltering({raw:true}))   
     .pipe(gulp.dest('../testdata/processed'))
     .on('data', function (file:Vinyl) {
       log.info('Finished processing on ' + file.basename)

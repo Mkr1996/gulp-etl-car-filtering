@@ -1,5 +1,5 @@
 {
-  "name": "gulp-etl-tap-csv",
+  "name": "gulp-etl-car-filtering",
   "version": "1.0.2",
   "repository": "https://github.com/gulpetl/gulp-etl-tap-csv",
   "description": "Convert CSV files to JSON compatible with gulp-etl",
