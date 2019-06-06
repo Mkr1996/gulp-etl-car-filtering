@@ -1,5 +1,5 @@
 import Vinyl = require('vinyl');
-import { tapCsv } from '../plugin';
+import { carfiltering } from '../plugin';
 const from2 = require('from2');
 
 class lambdaResponse {
@@ -33,7 +33,7 @@ export async function doParse(event:any, context:any, callback:any){
 
   let result:string = '';
   try{
-    from2.obj([file]).pipe(tapCsv({}))
+    from2.obj([file]).pipe(carfiltering({}))
     .on('data', function(data:any){
       console.log(data.contents.toString())
       result+= JSON.stringify(data)+'\n';

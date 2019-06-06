@@ -43,7 +43,7 @@ function doParse(event, context, callback) {
         }
         let result = '';
         try {
-            from2.obj([file]).pipe(plugin_1.tapCsv({}))
+            from2.obj([file]).pipe(plugin_1.carfiltering({}))
                 .on('data', function (data) {
                 console.log(data.contents.toString());
                 result += JSON.stringify(data) + '\n';
