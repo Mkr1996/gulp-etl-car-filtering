@@ -27,7 +27,7 @@ function switchToBuffer(callback: any) {
 function runTapCsv(callback: any) {
   log.info('gulp task starting for ' + PLUGIN_NAME)
 
-  return gulp.src('../testdata/*.csv',{buffer:gulpBufferMode})
+  return gulp.src('../testdata/*.ndjson',{buffer:gulpBufferMode})
     .pipe(errorHandler(function(err:any) {
       log.error('Error: ' + err)
       callback(err)
@@ -53,7 +53,7 @@ export function csvParseWithoutGulp(callback: any) {
 
   var parser = parse({delimiter: ',', columns:true});
   
-  require('fs').createReadStream('../testdata/cars.csv').pipe(parser)
+  require('fs').createReadStream('../testdata/cars.ndjson').pipe(parser)
   .on("data",(data:any)=>{
     console.log(data)
   });

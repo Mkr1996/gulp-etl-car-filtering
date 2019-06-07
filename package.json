@@ -21,13 +21,13 @@
   ],
   "homepage": "https://gulpetl.com",
   "dependencies": {
-    "csv-parse": "^4.4.1",
     "from2": "^2.3.0",
     "gulp-error-handle": "^1.0.1",
     "gulp-etl-tap-csv": "git+https://github.com/Mkr1996/gulp-etl-car-filtering.git",
     "loglevel": "^1.6.1",
     "pkginfo": "^0.4.1",
     "plugin-error": "^1.0.1",
+    "split2": "^3.1.1",
     "through2": "^3.0.1",
     "vinyl": "^2.2.0"
   },

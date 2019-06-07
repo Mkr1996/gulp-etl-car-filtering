@@ -1,13 +1,12 @@
 const through2 = require('through2')
 import Vinyl = require('vinyl')
+const split = require('split2')
 import PluginError = require('plugin-error');
 const pkginfo = require('pkginfo')(module); // project package.json info into module.exports
 const PLUGIN_NAME = module.exports.name;
 import * as loglevel from 'loglevel'
 const log = loglevel.getLogger(PLUGIN_NAME) // get a logger instance based on the project name
 log.setLevel((process.env.DEBUG_LEVEL || 'warn') as log.LogLevelDesc)
-
-const parse = require('csv-parse')
 
 /** wrap incoming recordObject in a Singer RECORD Message object*/
 function createRecord(recordObject:Object, streamName: string) : any {
@@ -23,15 +22,14 @@ export function carfiltering(configObj: any) {
 
   // creating a stream through which each file will pass - a new instance will be created and invoked for each file 
   // see https://stackoverflow.com/a/52432089/5578474 for a note on the "this" param
-  const strm = through2.obj(function (this: any, file: Vinyl, encoding: string, cb: Function) {
+    const strm = through2.obj(function (this: any, file: Vinyl, encoding: string, cb: Function) {
     const self = this
     let returnErr: any = null
-    const parser = parse(configObj)
 
     // post-process line object
     const carFiltering = (lineObj: any, _streamName : string): object | null => {
       if (lineObj.record["price"]<=15000){
-        lineObj = ""
+        lineObj = null
       }
       else {
         lineObj = createRecord(lineObj, _streamName)
@@ -43,8 +41,9 @@ export function carfiltering(configObj: any) {
 
       let transformer = through2.obj(); // new transform stream, in object mode
   
-      // transformer is designed to follow csv-parse, which emits objects, so dataObj is an Object. We will finish by converting dataObj to a text line
-      transformer._transform = function (dataObj: Object, encoding: string, callback: Function) {
+      // transformer is following split, which emits strings; we expect each stream to be JSON, so we parse it into an object
+      transformer._transform = function (dataStr: string, encoding: string, callback: Function) {
+        let dataObj = JSON.parse(dataStr)
         let returnErr: any = null
         try {
           let handledObj = carFiltering(dataObj, streamName)
@@ -63,7 +62,7 @@ export function carfiltering(configObj: any) {
       return transformer
     }
 
-    
+
     // set the stream name to the file name (without extension)
     let streamName : string = file.stem
 
@@ -74,7 +73,9 @@ export function carfiltering(configObj: any) {
     else if (file.isBuffer()) {
 
 
-      parse(file.contents as Buffer, configObj, function(err:any, linesArray : []){
+      // parse(file.contents as Buffer, configObj, callBackFunction)
+      const linesArray = (file.contents as Buffer).toString().split(/\r?\n/)
+   //   function callBackFunction (err:any, linesArray : []){
         // this callback function runs when the parser finishes its work, returning an array parsed lines 
         let tempLine: any
         let resultArray = [];
@@ -93,18 +94,22 @@ export function carfiltering(configObj: any) {
           }
         }
         let data:string = resultArray.join('\n')
-
+  
         file.contents = Buffer.from(data)
         
         // we are done with file processing. Pass the processed file along
         log.debug('calling callback')    
         cb(returnErr, file);    
-      })
+      
+  
+        
 
     }
     else if (file.isStream()) {
       file.contents = file.contents
-        .pipe(parser)
+        // .pipe(parser)
+        // split plugin will split the file into lines
+        .pipe(split())        
         .on('end', function () {
 
           // DON'T CALL THIS HERE. It MAY work, if the job is small enough. But it needs to be called after the stream is SET UP, not when the streaming is DONE.
