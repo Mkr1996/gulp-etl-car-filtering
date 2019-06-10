@@ -1,13 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const through2 = require('through2');
+const split = require('split2');
 const PluginError = require("plugin-error");
 const pkginfo = require('pkginfo')(module); // project package.json info into module.exports
 const PLUGIN_NAME = module.exports.name;
 const loglevel = require("loglevel");
 const log = loglevel.getLogger(PLUGIN_NAME); // get a logger instance based on the project name
 log.setLevel((process.env.DEBUG_LEVEL || 'warn'));
-const parse = require('csv-parse');
 /** wrap incoming recordObject in a Singer RECORD Message object*/
 function createRecord(recordObject, streamName) {
     return { type: "RECORD", stream: streamName, record: recordObject };
@@ -25,11 +25,10 @@ function carfiltering(configObj) {
     const strm = through2.obj(function (file, encoding, cb) {
         const self = this;
         let returnErr = null;
-        const parser = parse(configObj);
         // post-process line object
         const carFiltering = (lineObj, _streamName) => {
             if (lineObj.record["price"] <= 15000) {
-                lineObj = "";
+                lineObj = null;
             }
             else {
                 lineObj = createRecord(lineObj, _streamName);
@@ -38,8 +37,9 @@ function carfiltering(configObj) {
         };
         function newTransformer(streamName) {
             let transformer = through2.obj(); // new transform stream, in object mode
-            // transformer is designed to follow csv-parse, which emits objects, so dataObj is an Object. We will finish by converting dataObj to a text line
-            transformer._transform = function (dataObj, encoding, callback) {
+            // transformer is following split, which emits strings; we expect each stream to be JSON, so we parse it into an object
+            transformer._transform = function (dataStr, encoding, callback) {
+                let dataObj = JSON.parse(dataStr);
                 let returnErr = null;
                 try {
                     let handledObj = carFiltering(dataObj, streamName);
@@ -63,35 +63,38 @@ function carfiltering(configObj) {
             return cb(returnErr, file);
         }
         else if (file.isBuffer()) {
-            parse(file.contents, configObj, function (err, linesArray) {
-                // this callback function runs when the parser finishes its work, returning an array parsed lines 
-                let tempLine;
-                let resultArray = [];
-                // we'll call handleLine on each line
-                for (let dataIdx in linesArray) {
-                    try {
-                        let lineObj = linesArray[dataIdx];
-                        tempLine = carFiltering(lineObj, streamName);
-                        if (tempLine) {
-                            let tempStr = JSON.stringify(tempLine);
-                            log.debug(tempStr);
-                            resultArray.push(tempStr);
-                        }
-                    }
-                    catch (err) {
-                        returnErr = new PluginError(PLUGIN_NAME, err);
+            // parse(file.contents as Buffer, configObj, callBackFunction)
+            const linesArray = file.contents.toString().split(/\r?\n/);
+            //   function callBackFunction (err:any, linesArray : []){
+            // this callback function runs when the parser finishes its work, returning an array parsed lines 
+            let tempLine;
+            let resultArray = [];
+            // we'll call handleLine on each line
+            for (let dataIdx in linesArray) {
+                try {
+                    let lineObj = linesArray[dataIdx];
+                    tempLine = carFiltering(lineObj, streamName);
+                    if (tempLine) {
+                        let tempStr = JSON.stringify(tempLine);
+                        log.debug(tempStr);
+                        resultArray.push(tempStr);
                     }
                 }
-                let data = resultArray.join('\n');
-                file.contents = Buffer.from(data);
-                // we are done with file processing. Pass the processed file along
-                log.debug('calling callback');
-                cb(returnErr, file);
-            });
+                catch (err) {
+                    returnErr = new PluginError(PLUGIN_NAME, err);
+                }
+            }
+            let data = resultArray.join('\n');
+            file.contents = Buffer.from(data);
+            // we are done with file processing. Pass the processed file along
+            log.debug('calling callback');
+            cb(returnErr, file);
         }
         else if (file.isStream()) {
             file.contents = file.contents
-                .pipe(parser)
+                // .pipe(parser)
+                // split plugin will split the file into lines
+                .pipe(split())
                 .on('end', function () {
                 // DON'T CALL THIS HERE. It MAY work, if the job is small enough. But it needs to be called after the stream is SET UP, not when the streaming is DONE.
                 // Calling the callback here instead of below may result in data hanging in the stream--not sure of the technical term, but dest() creates no file, or the file is blank
